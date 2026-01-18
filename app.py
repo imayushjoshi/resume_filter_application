@@ -3,6 +3,7 @@ import pandas as pd
 import ast
 import plotly.express as px
 
+# --- 1. CONFIGURATION ---
 st.set_page_config(
     page_title="Millennium Talent Scout",
     page_icon="📈",
@@ -37,10 +38,11 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# --- 2. DATA LOADING & CLEANING ---
 @st.cache_data
 def load_and_clean_data():
     try:
-        df = pd.read_csv("output.csv")
+        df = pd.read_csv("Milennium Case Study Output.csv")
         df.columns = [c.strip() for c in df.columns]
         
         col_map = {
@@ -63,6 +65,7 @@ def load_and_clean_data():
             
             x_str = str(x).strip()
             
+            # Python List Format
             if x_str.startswith('[') and x_str.endswith(']'):
                 try:
                     parsed = ast.literal_eval(x_str)
@@ -76,9 +79,11 @@ def load_and_clean_data():
                 except:
                     pass
             
+            # Comma Separated Format
             if ',' in x_str:
                 return [i.strip() for i in x_str.split(',') if i.strip().lower() not in ['none', 'n/a']]
             
+            # Single Item
             return [x_str] if x_str.lower() not in ['none', 'n/a'] else []
 
         list_cols = [
@@ -109,27 +114,32 @@ df, cols = load_and_clean_data()
 if df.empty:
     st.stop()
 
+# --- 3. SIDEBAR FILTERS ---
 with st.sidebar:
     st.header("🔍 Search Filters")
     
+    # 1. Geographic Markets (Default Empty)
     if cols['geography'] in df.columns:
         all_geos = sorted(list(set([item for sublist in df[cols['geography']] for item in sublist])))
-        selected_geos = st.multiselect("Geographic Markets", all_geos, default=all_geos)
+        selected_geos = st.multiselect("Geographic Markets", all_geos, default=[]) 
     else:
         selected_geos = []
 
+    # 2. Sectors (Default Empty)
     if cols['sectors'] in df.columns:
         all_sectors = sorted(list(set([item for sublist in df[cols['sectors']] for item in sublist])))
-        selected_sectors = st.multiselect("Sectors", all_sectors, default=all_sectors)
+        selected_sectors = st.multiselect("Sectors", all_sectors, default=[])
     else:
         selected_sectors = []
 
+    # 3. Investment Approach (Default Empty)
     if cols['strategy'] in df.columns:
         strategies = sorted(df[cols['strategy']].astype(str).unique().tolist())
-        selected_strategies = st.multiselect("Investment Approach", strategies, default=strategies)
+        selected_strategies = st.multiselect("Investment Approach", strategies, default=[])
     else:
         selected_strategies = []
     
+    # 4. Years of Experience (Default Full Range)
     if cols['experience'] in df.columns:
         min_exp = int(df[cols['experience']].min())
         max_exp = int(df[cols['experience']].max())
@@ -138,27 +148,33 @@ with st.sidebar:
     else:
         exp_range = (0, 20)
 
+# --- 4. FILTERING LOGIC ---
 filtered_df = df.copy()
 
+# Filter: Strategy (Only apply if user selected something)
 if selected_strategies:
     filtered_df = filtered_df[filtered_df[cols['strategy']].isin(selected_strategies)]
 
+# Filter: Experience (Always applies)
 if cols['experience'] in df.columns:
     filtered_df = filtered_df[
         (filtered_df[cols['experience']] >= exp_range[0]) & 
         (filtered_df[cols['experience']] <= exp_range[1])
     ]
 
+# Filter: Geography (Only apply if user selected something)
 if selected_geos:
     filtered_df = filtered_df[filtered_df[cols['geography']].apply(
         lambda x: bool(set(x) & set(selected_geos))
     )]
 
+# Filter: Sector (Only apply if user selected something)
 if selected_sectors:
     filtered_df = filtered_df[filtered_df[cols['sectors']].apply(
         lambda x: bool(set(x) & set(selected_sectors))
     )]
 
+# --- 5. DASHBOARD MAIN AREA ---
 st.markdown('<p class="main-header">Millennium Talent Platform</p>', unsafe_allow_html=True)
 
 c1, c2, c3 = st.columns(3)
@@ -191,6 +207,7 @@ if not filtered_df.empty:
         fig_geo = px.bar(geo_counts, x='Region', y='Count', title="Geographic Focus", color='Region')
         st.plotly_chart(fig_geo, use_container_width=True)
 
+# --- 6. CANDIDATE PROFILES ---
 st.subheader("📋 Candidate Profiles")
 
 if not filtered_df.empty:
@@ -220,7 +237,7 @@ if not filtered_df.empty:
                     st.caption(f"🔧 {sec}")
                 
                 st.markdown("---")
-                st.markdown("**💡 Investment Approach:**")
+                st.markdown("**💡 Classification Rationale:**")
                 st.info(rationale)
             
             with col_right:
